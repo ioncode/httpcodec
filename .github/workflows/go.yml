@@ -1,0 +1,42 @@
+# Название пайплайна автоматического тестирования
+name: Go Test & Benchmark
+
+# Триггеры запуска: срабатывает при создании/обновлении PR в ветку master,
+# а также при прямом пуше в master.
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    name: Run Tests and Benchmarks
+    # Запускаем на ubuntu для стабильной и быстрой проверки сетевых сокетов
+    runs-on: ubuntu-latest
+
+    steps:
+    # Шаг 1: Скачиваем исходный код репозитория
+    - name: Check out source code
+      uses: actions/checkout@v4
+
+    # Шаг 2: Разворачиваем и кэшируем окружение Go 1.26.1
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.26.1'
+        cache: true # Автоматически кэширует скачанные зависимости go.mod
+
+    # Шаг 3: Скачиваем внешние зависимости (goccy/go-json)
+    - name: Install dependencies
+      run: go mod download
+
+    # Шаг 4: Запуск модульных тестов с проверкой race-детектора и выводом покрытия
+    - name: Run Unit Tests
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+    # Шаг 5: Запуск бенчмарков с прогревом пулов памяти
+    # Флаг -benchtime=5000x даст Go выполнить 5000 циклов, чего хватит для прогрева sync.Pool,
+    # но тест выполнится мгновенно (за сотые доли секунды), не задерживая CI-пайплайн.
+    - name: Verify Benchmarks Performance
+      run: go test -v -bench=. -benchmem -benchtime=5000x ./...
