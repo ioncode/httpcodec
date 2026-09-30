@@ -24,9 +24,9 @@ jobs:
         id: github_release
         uses: mikepenz/release-changelog-builder-action@v5
         with:
+          template: "## 📦 Что изменилось в этом релизе\n\n${changelog}"
           configurationJson: |
             {
-              "template": "## 📦 Что изменилось в этом релизе\n\n${changelog}",
               "categories": [
                 {
                   "title": "🚀 Новые возможности и улучшения (Features)",
