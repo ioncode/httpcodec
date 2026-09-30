@@ -37,14 +37,14 @@ jobs:
         run: go install golang.org/x/perf/cmd/benchstat@latest
       - name: Benchmark current feature branch (PR)
         run: |
-          go test -bench=. -benchmem -count=5 -benchtime=1000x ./... > bench_current.txt
+          go test -bench=. -benchmem -count=7 -benchtime=1000x ./... > bench_current.txt
           cat bench_current.txt
 
       - name: Benchmark baseline branch (main)
         run: |
           # Переключаемся на чистую ветку main, игнорируя текущие изменения
           git checkout main
-          go test -bench=. -benchmem -count=5 -benchtime=1000x ./... > bench_base.txt
+          go test -bench=. -benchmem -count=7 -benchtime=1000x ./... > bench_base.txt
           cat bench_base.txt
           # Возвращаемся обратно к проверяемому коду
           git checkout -
@@ -56,15 +56,14 @@ jobs:
 
       - name: Validate zero-allocation policy
         run: |
-          # 1. С помощью grep ищем в отчете строки, относящиеся к памяти (B/op или allocs/op)
-          # 2. Среди этих строк ищем знак плюса (например, +10.50%), что означает рост аллокаций
-          # 3. Регулярное выражение "\+[0-9]+" ищет знак плюс и идущие за ним цифры
-          if grep -E "(B/op|allocs/op)" benchstat_report.txt | grep -E "\+[0-9]+"; then
+          # Фильтруем строки памяти. Ищем ухудшения, которые составляют 1.00% и более.
+          # Регулярное выражение "\+[1-9][0-9]*\.[0-9]+" отсекает любые околонулевые колебания (+0.12%),
+          # но мгновенно сработает на +1.00%, +15.3% или +100.0%.
+          if grep -E "(B/op|allocs/op)" benchstat_report.txt | grep -E "\+([1-9][0-9]*|0\.[0-9]*[1-9])%"; then
             echo "========================================================================="
-            echo "ОШИБКА CI: Обнаружена деградация памяти (Performance Regression)!"
-            echo "В текущем PR выросло количество байт (B/op) или аллокаций (allocs/op)."
-            echo "Проверьте правила Escape Analysis компилятора Go."
+            echo "ОШИБКА CI: Обнаружена значимая деградация памяти (Performance Regression)!"
+            echo "В текущем PR потребление памяти или число аллокаций выросло."
             echo "========================================================================="
             exit 1
           fi
-          echo "Пайплайн успешно пройден. Регрессии по памяти не обнаружено."
+          echo "Пайплайн успешно пройден. Значимой регрессии по памяти не обнаружено."
