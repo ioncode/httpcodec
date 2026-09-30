@@ -27,7 +27,7 @@ jobs:
         id: tag_version
         uses: anothrNick/github-tag-action@1.75.0 # Надежный экшен для авто-версионирования
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
           WITH_V: true # Теги будут создаваться в формате v0.0.3 (с буквой v)
           DEFAULT_BUMP: patch # Если префиксы не распознаны, по умолчанию делаем патч
           # Связываем типы Conventional Commits с уровнями инкремента:
