@@ -1,0 +1,36 @@
+name: Automated Semantic Tagging
+
+on:
+  push:
+    branches:
+      - main # Пайплайн запускается при любом пуше или мерже в main
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - "CHANGELOG.md"
+
+permissions:
+  contents: write # Даем права на создание и пуш git-тегов
+
+jobs:
+  auto_tag:
+    name: Calculate & Push New Version Tag
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Скачиваем всю историю для корректного расчета версии
+
+      - name: Calculate and Bump Version Tag
+        id: tag_version
+        uses: anothrNick/github-tag-action@1.75.0 # Надежный экшен для авто-версионирования
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true # Теги будут создаваться в формате v0.0.3 (с буквой v)
+          DEFAULT_BUMP: patch # Если префиксы не распознаны, по умолчанию делаем патч
+          # Связываем типы Conventional Commits с уровнями инкремента:
+          MAJOR_STRING_TOKEN: "BREAKING CHANGE:"
+          MINOR_STRING_TOKEN: "feat:"
+          PATCH_STRING_TOKEN: "fix:"
