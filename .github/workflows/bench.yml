@@ -1,0 +1,64 @@
+# Пайплайн изолированного контроля регрессии производительности кодека
+name: Performance Regression CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+  # Позволяет запускать бенчмарки вручную в один клик через вкладку Actions
+  workflow_dispatch:
+jobs:
+  benchstat_comparison:
+    name: Benchmark Performance Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Скачиваем всю историю коммитов для возможности переключения веток
+
+      - name: Set up Go runtime
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+          cache: true
+
+      - name: Install benchstat utility
+        run: go install Ashish-B/benchstat@latest # Установка легковесного парсера benchstat
+      - name: Benchmark current feature branch (PR)
+        run: |
+          go test -bench=. -benchmem -count=5 -benchtime=1000x ./... > bench_current.txt
+          cat bench_current.txt
+
+      - name: Benchmark baseline branch (main)
+        run: |
+          # Переключаемся на чистую ветку main, игнорируя текущие изменения
+          git checkout main
+          go test -bench=. -benchmem -count=5 -benchtime=1000x ./... > bench_base.txt
+          cat bench_base.txt
+          # Возвращаемся обратно к проверяемому коду
+          git checkout -
+      - name: Run benchstat comparison
+        run: |
+          echo "=== Сравнение производительности (main vs feature) ==="
+          benchstat bench_base.txt bench_current.txt
+
+      - name: Validate zero-allocation policy
+        run: |
+          # Скрипт проверяет, не выросли ли показатели B/op и allocs/op в новом коде.
+          # Если benchstat находит строки с ухудшением (положительный процент в памяти), шаг падает.
+          if grep -E "\+([0-9]+)\.[0-9]+%" bench_current.txt | grep -E "(B/op|allocs/op)"; then
+            echo "Ошибка: Обнаружена деградация управления памятью или утечка в кучу (OOM/Escape Analysis)!"
+            exit 1
+          fi
+          echo "Пайплайн успешно пройден. Регрессии производительности не обнаружено."

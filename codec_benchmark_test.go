@@ -154,7 +154,7 @@ func Benchmark_WriteJSON_Comparison(b *testing.B) {
 // Benchmark_WriteJSON_Comparison оценивает накладные расходы при кодировании
 // и отправке тяжелого JSON-массива (батч из 1000 элементов).
 func Benchmark_WriteHeavyJSON_Comparison(b *testing.B) {
-	codec := httpcodec.New(4096)
+	codec := httpcodec.New(4096, httpcodec.WithMaxJSONBufferCap(150000))
 
 	// НАША НАГРУЗКА: Генерируем гигантский массив из 1000 элементов
 	const batchSize = 1000
@@ -187,6 +187,7 @@ func Benchmark_WriteHeavyJSON_Comparison(b *testing.B) {
 			// Легаси-подход: json.Marshal ВЫНУЖДЕН аллоцировать в куче
 			// огромный срез байт под весь массив из 1000 элементов НА КАЖДЫЙ запрос!
 			bytesData, _ := json.Marshal(&heavyData)
+			//честно выставляем заголовок как и внутри codec.WriteJSON (там это единственная аллокация всего метода!)
 			res.Header().Set("Content-Type", "application/json")
 			res.WriteHeader(http.StatusOK)
 			_, _ = res.Write(bytesData)
