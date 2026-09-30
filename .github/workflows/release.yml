@@ -24,36 +24,27 @@ jobs:
         id: github_release
         uses: mikepenz/release-changelog-builder-action@v5
         with:
-          template: "## 📦 Что изменилось в этом релизе\n\n${changelog}"
           configurationJson: |
             {
+              "template": "## 📦 Что изменилось в этом релизе\n\n#{{CHANGELOG}}",
               "categories": [
                 {
                   "title": "🚀 Новые возможности и улучшения (Features)",
-                  "labels": ["enhancement", "feat"],
-                  "rules": [{"match": "^feat:.*", "method": "regex"}]
-                },
-                {
-                  "title": "⚡ Оптимизация производительности (Performance)",
-                  "labels": ["performance", "perf"],
-                  "rules": [{"match": "^perf:.*", "method": "regex"}]
+                  "labels": ["enhancement", "feat"]
                 },
                 {
                   "title": "🛡️ Исправления ошибок и Edge-cases (Bug Fixes)",
-                  "labels": ["bug", "fix"],
-                  "rules": [{"match": "^fix:.*", "method": "regex"}]
+                  "labels": ["bug", "fix"]
                 },
                 {
-                  "title": "📐 Чистая архитектура и рефакторинг (Refactor)",
-                  "labels": ["refactor"],
-                  "rules": [{"match": "^refactor:.*", "method": "regex"}]
+                  "title": "📝 Документация и конфигурация (Documentation)",
+                  "labels": ["documentation"]
                 }
               ],
               "ignore_labels": [
-                "documentation",
-                "duplicate",
                 "invalid",
-                "wontfix"
+                "wontfix",
+                "duplicate"
               ]
             }
         env:
