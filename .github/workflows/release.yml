@@ -1,0 +1,60 @@
+# Пайплайн автоматической генерации CHANGELOG на основе стандартных меток GitHub
+name: Automated Release & Changelog
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build_release:
+    name: Generate Changelog & Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Changelog Markdown
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          configurationJson: |
+            {
+              "template": "# ${title}\n\n## 📦 Что изменилось в этом релизе\n\n${changelog}",
+              "categories": [
+                {
+                  "title": "🚀 Новые возможности и улучшения (Enhancements)",
+                  "labels": ["enhancement"]
+                },
+                {
+                  "title": "🛡️ Исправления ошибок и Edge-cases (Bug Fixes)",
+                  "labels": ["bug"]
+                }
+              ],
+              "ignore_labels": [
+                "documentation",
+                "duplicate",
+                "invalid",
+                "wontfix",
+                "question",
+                "help wanted",
+                "good first issue"
+              ]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.github_release.outputs.changelog }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
