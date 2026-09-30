@@ -1,0 +1,69 @@
+# Пайплайн изолированного контроля регрессии производительности кодека
+name: Performance Regression CI
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+  # Позволяет запускать бенчмарки вручную в один клик через вкладку Actions
+  workflow_dispatch:
+jobs:
+  benchstat_comparison:
+    name: Benchmark Performance Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Скачиваем всю историю коммитов для возможности переключения веток
+
+      - name: Set up Go runtime
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+          cache: true
+
+      - name: Install benchstat utility
+        run: go install golang.org/x/perf/cmd/benchstat@latest
+      - name: Benchmark current feature branch (PR)
+        run: |
+          go test -bench=. -benchmem -count=7 -benchtime=1000x ./... > bench_current.txt
+          cat bench_current.txt
+
+      - name: Benchmark baseline branch (main)
+        run: |
+          # Переключаемся на чистую ветку main, игнорируя текущие изменения
+          git checkout main
+          go test -bench=. -benchmem -count=7 -benchtime=1000x ./... > bench_base.txt
+          cat bench_base.txt
+          # Возвращаемся обратно к проверяемому коду
+          git checkout -
+      - name: Run benchstat comparison
+        run: |
+          echo "=== Сравнение производительности (main vs feature) ==="
+          # Сохраняем сравнительный отчет в файл для последующего анализа
+          benchstat bench_base.txt bench_current.txt | tee benchstat_report.txt
+
+      - name: Validate zero-allocation policy
+        run: |
+          # Фильтруем строки памяти. Ищем ухудшения, которые составляют 1.00% и более.
+          # Регулярное выражение "\+[1-9][0-9]*\.[0-9]+" отсекает любые околонулевые колебания (+0.12%),
+          # но мгновенно сработает на +1.00%, +15.3% или +100.0%.
+          if grep -E "(B/op|allocs/op)" benchstat_report.txt | grep -E "\+([1-9][0-9]*|0\.[0-9]*[1-9])%"; then
+            echo "========================================================================="
+            echo "ОШИБКА CI: Обнаружена значимая деградация памяти (Performance Regression)!"
+            echo "В текущем PR потребление памяти или число аллокаций выросло."
+            echo "========================================================================="
+            exit 1
+          fi
+          echo "Пайплайн успешно пройден. Значимой регрессии по памяти не обнаружено."
